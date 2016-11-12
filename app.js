@@ -12,7 +12,7 @@ var rl = readline.createInterface({
 var getInputFunction = function getInput(callback) {
     rl.question('Enter username to download likes from: ', function(username) {
         rl.question('Is the profile private?: ', function(yesOrNo) {
-            if(yesOrNo === 'Y' || yesOrNo === 'y') {
+            if(yesOrNo == 'Y' || yesOrNo == 'y') {
                 getUserAndPass(callback, username);
             } else {
                 callback(username);
@@ -33,40 +33,43 @@ var getUserAndPass = function(callback, username) {
 //POST https://api.vineapp.com/users/authenticate
 //username=xxx@example.com
 //password=xxx
-var executeLoginRequest = function(username, password) {
-    //set up form data
-    // var form = {
-    //     username : username,
-    //     password : password
-    // }
-    //
-    // //called once the request returns
-    // var onLoginResponse = function(err, httpResponse, body) {
-    //     var data = body['data'];
-    //     var userId = data['userId'];
-    //     var key = data['key'];
-    //
-    //     //TODO: check if data['success'] or else pass an error to the login emitter
-    //
-    //     getUser(userId, key);
-    // }
-    //
-    // //make the request
-    // request({
-    //     headers: {
-    //         'Content-Type' : 'application/x-www-form-urlencoded'
-    //     },
-    //     uri: 'https://api.vineapp.com/users/authenticate',
-    //     qs: form,
-    //     method: 'POST',
-    //     json: true
-    // }, onLoginResponse);
+var executeLoginRequest = function(username, password, loginUsername) {
 
-    getUser();
+    if(username == null || password == null) {
+        //set up form data
+        var form = {
+            username : username,
+            password : password
+        }
+
+        //called once the request returns
+        var onLoginResponse = function(err, httpResponse, body) {
+            var data = body['data'];
+            var userId = data['userId'];
+            var key = data['key'];
+
+            //TODO: check if data['success'] or else pass an error to the login emitter
+
+            getUser(key);
+        }
+
+        //make the request
+        request({
+            headers: {
+                'Content-Type' : 'application/x-www-form-urlencoded'
+            },
+            uri: 'https://api.vineapp.com/users/authenticate',
+            qs: form,
+            method: 'POST',
+            json: true
+        }, onLoginResponse);
+    } else {
+        getUser();
+    }
+
 }
 
-// var getUser = function(userId, key) {
-var getUser = function() {
+var getUser = function(key) {
     //TODO: replace VicCherolis with user input
     var uri = 'https://api.vineapp.com/users/search/' + 'VicCherolis';
 
@@ -86,7 +89,7 @@ var getUser = function() {
     request({
         headers: {
             'Content-Type' : 'application/javascript',
-            //vine-session-id: key TODO: test this out with random user timelines to see if private users return errors
+            'vine-session-id' : key //TODO: test this out with random user timelines to see if private users return errors
         },
         uri: uri,
         method: 'GET',
