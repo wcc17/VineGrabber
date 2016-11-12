@@ -81,7 +81,8 @@ var getUser = function() {
     }, onGetUserResponse);
 };
 
-var getLikes = function recursiveGetLikes(userId, page, likes) {
+var getLikes = function recursiveGetLikes(userId,
+                                          page, likes) {
     console.log('Getting likes for page ' + page + ' of likes for userId ' + userId);
 
     var uri = 'https://api.vineapp.com/timelines/users/' + userId + '/likes';
@@ -102,7 +103,7 @@ var getLikes = function recursiveGetLikes(userId, page, likes) {
         var nextPage = data['nextPage'];
 
         // if(nextPage != null) {
-        if(nextPage <= 5) {
+        if(nextPage <= 10) {
             recursiveGetLikes(userId, nextPage, likes);
         } else {
             processVines(likes);
@@ -184,11 +185,12 @@ var downloadVines = function downloadVine(processedVines, index) {
     if(index < processedVines.length) {
         console.log('Downloading vine # ' + index);
 
-        var fileName = index
-            + ' - '
-            + processedVines[index].username + ' - '
-            + processedVines[index].created
-            + '.mp4';
+        // var fileName = index
+        //     + ' - '
+        //     + processedVines[index].username + ' - '
+        //     + processedVines[index].created
+        //     + '.mp4';
+        var fileName = index + '.mp4';
 
         onReadyForDownload(processedVines, index, fileName);
 
@@ -201,13 +203,34 @@ var onReadyForDownload = function(processedVines, index, videoFileName) {
     videoFileName = videoFileName.replace(/\//g, '-');
     videoFileName = videoFileName.replace(/:/g, '-');
 
+    if(index === 58) {
+        console.log();
+    }
+
     request(processedVines[index].videoUrl)
         .on('response', function(response) {
-            index = index + 1;
-            downloadVines(processedVines, index);
+            // if(response.complete != true) {
+            //     console.log('');
+            // }
+            //
+            // var json = response.toJSON();
+            //
+            // index = index + 1;
+            // downloadVines(processedVines, index);
         })
         .on('error', function(err) {
             console.log('ERROR DOWNLOADING VINE # ' + index);
+            index -= 1;
+        })
+        .on('end', function() {
+            // if(response.complete != true) {
+            //     console.log('');
+            // }
+            //
+            // var json = response.toJSON();
+
+            index = index + 1;
+            downloadVines(processedVines, index);
         })
         .pipe(fs.createWriteStream(videoFileName));
 }
