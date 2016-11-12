@@ -103,7 +103,7 @@ var getLikes = function recursiveGetLikes(userId,
         var nextPage = data['nextPage'];
 
         // if(nextPage != null) {
-        if(nextPage <= 10) {
+        if(nextPage <= 1) {
             recursiveGetLikes(userId, nextPage, likes);
         } else {
             processVines(likes);
@@ -209,26 +209,13 @@ var onReadyForDownload = function(processedVines, index, videoFileName) {
 
     request(processedVines[index].videoUrl)
         .on('response', function(response) {
-            // if(response.complete != true) {
-            //     console.log('');
-            // }
-            //
-            // var json = response.toJSON();
-            //
-            // index = index + 1;
-            // downloadVines(processedVines, index);
+            console.log('Beginning download for vine # ' + index);
         })
         .on('error', function(err) {
-            console.log('ERROR DOWNLOADING VINE # ' + index);
-            index -= 1;
+            console.log('Error downloading vine # ' + index);
         })
         .on('end', function() {
-            // if(response.complete != true) {
-            //     console.log('');
-            // }
-            //
-            // var json = response.toJSON();
-
+            console.log('Finished download for vine # ' + index);
             index = index + 1;
             downloadVines(processedVines, index);
         })
