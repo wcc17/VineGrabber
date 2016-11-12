@@ -4,18 +4,30 @@ var queryString = require('querystring');
 var readline = require('readline');
 var fs = require('fs');
 
-// var rl = readline.createInterface({
-//     input: process.stdin,
-//     output: process.stdout
-// });
-//
+var rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+
 var getInputFunction = function getInput(callback) {
-//     rl.question("Username: ", function(username) {
-//         rl.question("Password: ", function(password) {
-//             callback(username, password);
-//         });
-//     });
-    callback(null, null);
+    rl.question('Enter username to download likes from: ', function(username) {
+        rl.question('Is the profile private?: ', function(yesOrNo) {
+            if(yesOrNo === 'Y' || yesOrNo === 'y') {
+                getUserAndPass(callback, username);
+            } else {
+                callback(username);
+            }
+        })
+    })
+}
+
+var getUserAndPass = function(callback, username) {
+    rl.question("Username to login with: ", function(loginUsername) {
+
+        rl.question("Password to login with: ", function(password) {
+            callback(username, password, loginUsername);
+        });
+    });
 }
 
 //POST https://api.vineapp.com/users/authenticate
@@ -102,8 +114,8 @@ var getLikes = function recursiveGetLikes(userId,
 
         var nextPage = data['nextPage'];
 
-        // if(nextPage != null) {
-        if(nextPage <= 1) {
+        if(nextPage != null) {
+        // if(nextPage <= 10) {
             recursiveGetLikes(userId, nextPage, likes);
         } else {
             processVines(likes);
@@ -178,19 +190,18 @@ var processVines = function(vines) {
         });
     }
 
-    downloadVines(processedVines, 0);
+    downloadVines(processedVines, 551);
 }
 
 var downloadVines = function downloadVine(processedVines, index) {
     if(index < processedVines.length) {
         console.log('Downloading vine # ' + index);
 
-        // var fileName = index
-        //     + ' - '
-        //     + processedVines[index].username + ' - '
-        //     + processedVines[index].created
-        //     + '.mp4';
-        var fileName = index + '.mp4';
+        var fileName = index
+            + ' - '
+            + processedVines[index].username + ' - '
+            + processedVines[index].created
+            + '.mp4';
 
         onReadyForDownload(processedVines, index, fileName);
 
@@ -203,16 +214,23 @@ var onReadyForDownload = function(processedVines, index, videoFileName) {
     videoFileName = videoFileName.replace(/\//g, '-');
     videoFileName = videoFileName.replace(/:/g, '-');
 
-    if(index === 58) {
-        console.log();
-    }
-
     request(processedVines[index].videoUrl)
         .on('response', function(response) {
             console.log('Beginning download for vine # ' + index);
         })
         .on('error', function(err) {
             console.log('Error downloading vine # ' + index);
+            downloadVines(processedVines, index);
+        })
+        .on('socket', function(socket) {
+            //TODO: magic number
+            socket.setTimeout(30000);
+            socket.on('timeout', function() {
+                console.log('Retrying download of vine # ' + index);
+                socket.end();
+                socket.destroy();
+                downloadVines(processedVines, index);
+            })
         })
         .on('end', function() {
             console.log('Finished download for vine # ' + index);
