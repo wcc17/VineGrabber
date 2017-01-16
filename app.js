@@ -4,28 +4,33 @@ var queryString = require('querystring');
 var readline = require('readline');
 var fs = require('fs');
 
+//will be used to store the vines whose download failed for redownloading later
+var failedDownloadVines = [];
+
 var rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
 });
 
 var getInputFunction = function getInput(callback) {
-    rl.question('Enter username to download likes from: ', function(username) {
+    rl.question('Enter username to download likes from: ', function(searchUsername) {
         rl.question('Is the profile private?: ', function(yesOrNo) {
             if(yesOrNo == 'Y' || yesOrNo == 'y') {
-                getUserAndPass(callback, username);
+                getUserAndPass(callback, searchUsername);
             } else {
-                callback(username);
+                callback(null, null, searchUsername);
             }
         })
     })
+
+    // callback('christian.curry17@gmail.com', 'ih@t3this', 'VicCherolis');
+    //callback(null, null, 'VicCherolis');
 }
 
-var getUserAndPass = function(callback, username) {
-    rl.question("Username to login with: ", function(loginUsername) {
-
+var getUserAndPass = function(callback, searchUsername) {
+    rl.question("Username to login with: ", function(username) {
         rl.question("Password to login with: ", function(password) {
-            callback(username, password, loginUsername);
+            callback(username, password, searchUsername);
         });
     });
 }
@@ -33,9 +38,9 @@ var getUserAndPass = function(callback, username) {
 //POST https://api.vineapp.com/users/authenticate
 //username=xxx@example.com
 //password=xxx
-var executeLoginRequest = function(username, password, loginUsername) {
+var executeLoginRequest = function(username, password, searchUsername) {
 
-    if(username == null || password == null) {
+    if(username != null && password != null) {
         //set up form data
         var form = {
             username : username,
@@ -46,11 +51,13 @@ var executeLoginRequest = function(username, password, loginUsername) {
         var onLoginResponse = function(err, httpResponse, body) {
             var data = body['data'];
             var userId = data['userId'];
-            var key = data['key'];
+            var sessionId = data['key'];
+
+            console.log(sessionId);
 
             //TODO: check if data['success'] or else pass an error to the login emitter
 
-            getUser(key);
+            getUser(searchUsername, sessionId);
         }
 
         //make the request
@@ -64,14 +71,14 @@ var executeLoginRequest = function(username, password, loginUsername) {
             json: true
         }, onLoginResponse);
     } else {
-        getUser();
+        getUser(searchUsername, null);
     }
 
 }
 
-var getUser = function(key) {
+var getUser = function(searchUsername, sessionId) {
     //TODO: replace VicCherolis with user input
-    var uri = 'https://api.vineapp.com/users/search/' + 'VicCherolis';
+    var uri = 'https://api.vineapp.com/users/search/' + searchUsername;
 
     var onGetUserResponse = function(err, httpResponse, body) {
         //not sure why I was getting errors with json : true in request, but parsing here to remedy that
@@ -83,21 +90,21 @@ var getUser = function(key) {
         records = records[0];
 
         var userId = records['userId'];
-        getLikes(userId, 1, []);
+        getLikes(userId, sessionId, 1, []);
     }
 
     request({
         headers: {
             'Content-Type' : 'application/javascript',
-            'vine-session-id' : key //TODO: test this out with random user timelines to see if private users return errors
+            'session-id' : sessionId //TODO: test this out with random user timelines to see if private users return errors
         },
         uri: uri,
         method: 'GET',
     }, onGetUserResponse);
 };
 
-var getLikes = function recursiveGetLikes(userId,
-                                          page, likes) {
+//TODO: maybe keep global user object to store stuff like userId and sessionId
+var getLikes = function recursiveGetLikes(userId, sessionId, page, likes) {
     console.log('Getting likes for page ' + page + ' of likes for userId ' + userId);
 
     var uri = 'https://api.vineapp.com/timelines/users/' + userId + '/likes';
@@ -119,7 +126,7 @@ var getLikes = function recursiveGetLikes(userId,
 
         if(nextPage != null) {
         // if(nextPage <= 10) {
-            recursiveGetLikes(userId, nextPage, likes);
+            recursiveGetLikes(userId, sessionId, nextPage, likes);
         } else {
             processVines(likes);
         }
@@ -129,7 +136,7 @@ var getLikes = function recursiveGetLikes(userId,
     request({
         headers: {
             'Content-Type' : 'application/json',
-            //vine-session-id: key TODO: test this out with random user timelines to see if private users return errors
+            'session-id' : sessionId //TODO: test this out with random user timelines to see if private users return errors
         },
         url: uri,
         qs: form,
@@ -137,9 +144,9 @@ var getLikes = function recursiveGetLikes(userId,
     }, onGetLikesResponse);
 };
 
-var getVineString = function(index, vine) {
+var getVineString = function(vine) {
     var string =
-        index + ': '
+        + vine.likeIndex
         + '\n' + 'avatarUrl: ' + vine.avatarUrl
         + '\n' + 'created: ' + vine.created
         + '\n' + 'description: ' + vine.description
@@ -170,6 +177,7 @@ var processVines = function(vines) {
 
     for(var i = 0; i < vines.length; i++) {
         var processedVine = {
+            likeIndex : i,
             avatarUrl : vines[i].avatarUrl,
             created : vines[i].created,
             description : vines[i].description,
@@ -186,21 +194,21 @@ var processVines = function(vines) {
 
         processedVines.push(processedVine);
 
-        fs.appendFile('full-list-vines.txt', getVineString(i, processedVine), function(error) {
+        fs.appendFile('full-list-vines.txt', getVineString(processedVine), function(error) {
             if(error) {
                 console.log('error writing to file');
             }
         });
     }
 
-    downloadVines(processedVines, 551);
+    // downloadVines(processedVines, 0);
 }
 
 var downloadVines = function downloadVine(processedVines, index) {
     if(index < processedVines.length) {
-        console.log('Downloading vine # ' + index);
+        console.log('Downloading vine # ' + processedVines[index].likeIndex);
 
-        var fileName = index
+        var fileName = processedVines[index].likeIndex
             + ' - '
             + processedVines[index].username + ' - '
             + processedVines[index].created
@@ -209,6 +217,13 @@ var downloadVines = function downloadVine(processedVines, index) {
         onReadyForDownload(processedVines, index, fileName);
 
     } else {
+        if(failedDownloadVines.length == 0) {
+            console.log('attempting redownload of failed vines');
+            var vines = failedDownloadVines;
+            failedDownloadVines = [];
+            downloadVines(vines, 0);
+        }
+
         process.exit();
     }
 }
@@ -217,6 +232,7 @@ var onReadyForDownload = function(processedVines, index, videoFileName) {
     videoFileName = videoFileName.replace(/\//g, '-');
     videoFileName = videoFileName.replace(/:/g, '-');
 
+    //TODO: test out private profile urls to see if they can be downloaded without session id
     request(processedVines[index].videoUrl)
         .on('response', function(response) {
             console.log('Beginning download for vine # ' + index);
@@ -232,7 +248,10 @@ var onReadyForDownload = function(processedVines, index, videoFileName) {
                 console.log('Retrying download of vine # ' + index);
                 socket.end();
                 socket.destroy();
-                downloadVines(processedVines, index);
+                //downloadVines(processedVines, index);
+
+                console.log('adding vine to retry list');
+                failedDownloadVines.push(processedVines[index]);
             })
         })
         .on('end', function() {
