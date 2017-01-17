@@ -23,7 +23,7 @@ var getInputFunction = function getInput(callback) {
         })
     })
 
-    // callback('christian.curry17@gmail.com', 'ih@t3this', 'VicCherolis');
+    // callback('christian.curry17@gmail.com', 'oops', 'VicCherolis');
     //callback(null, null, 'VicCherolis');
 }
 
