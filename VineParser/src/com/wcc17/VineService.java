@@ -15,7 +15,7 @@ public class VineService {
 
     public static List<Vine> parseVineList() {
         List<Vine> vines = new ArrayList<Vine>();
-        File file = new File("../full-list-vines.txt");
+        File file = new File("../full-vines-list-VICTORIA.txt");
         BufferedReader reader = null;
 
         try {

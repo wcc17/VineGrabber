@@ -1,20 +1,21 @@
 package com.wcc17;
 
-import java.awt.FlowLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
+import java.awt.*;
+import java.awt.event.*;
+import java.awt.image.BufferedImage;
+import java.awt.image.BufferedImage;
 import java.util.List;
 
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.SwingConstants;
+import javax.swing.*;
+
+import uk.co.caprica.vlcj.component.DirectMediaPlayerComponent;
+import uk.co.caprica.vlcj.discovery.NativeDiscovery;
+import uk.co.caprica.vlcj.player.direct.BufferFormat;
+import uk.co.caprica.vlcj.player.direct.BufferFormatCallback;
+import uk.co.caprica.vlcj.player.direct.DirectMediaPlayer;
+import uk.co.caprica.vlcj.player.direct.RenderCallback;
+import uk.co.caprica.vlcj.player.direct.RenderCallbackAdapter;
+import uk.co.caprica.vlcj.player.direct.format.RV32BufferFormat;
 
 /**
  * Created by wcc17 on 1/15/17.
@@ -24,10 +25,20 @@ public class Window {
 	static JFrame vineViewerFrame; 
 	static JPanel vineListPanel;
 	static JPanel vineInfoPanel;
+	static VLCPanel videoSurfacePanel;
 	
     static JScrollPane vineScrollPane;
     static JLabel vineLabel;
     static JButton watchVineButton;
+
+    static BufferedImage image;
+    public static int width;
+    public static int height;
+    private DirectMediaPlayerComponent mediaPlayerComponent;
+
+    public Window() {
+        initialize();
+    }
 
     public void initialize() {
     	vineViewerFrame = new JFrame("Vine Viewer");
@@ -44,13 +55,39 @@ public class Window {
         vineListPanel.add(vineScrollPane);
         vineInfoPanel.add(vineLabel);
         vineInfoPanel.add(watchVineButton);
-        
+
         vineViewerFrame.add(vineListPanel);
         vineViewerFrame.add(vineInfoPanel);
+
+        videoSurfacePanel = new VLCPanel();
+        vineViewerFrame.add(videoSurfacePanel);
+        width = 480;
+        height = 480;
+        image = GraphicsEnvironment
+                .getLocalGraphicsEnvironment()
+                .getDefaultScreenDevice()
+                .getDefaultConfiguration()
+                .createCompatibleImage(width, height);
+        BufferFormatCallback bufferFormatCallback = new BufferFormatCallback() {
+            @Override
+            public BufferFormat getBufferFormat(int sourceWidth, int sourceHeight) {
+                return new RV32BufferFormat(width, height);
+            }
+        };
+        mediaPlayerComponent = new DirectMediaPlayerComponent(bufferFormatCallback) {
+            @Override
+            protected RenderCallback onGetRenderCallback() {
+                return new VineRenderCallbackAdapter();
+            }
+        };
 
         //Display the window
         vineViewerFrame.pack();
         vineViewerFrame.setVisible(true);
+
+        //TODO: TO PLAY A VIDEO
+        mediaPlayerComponent.getMediaPlayer()
+                .playMedia("vines-VICTORIA/0 - MileSplit US - 2016-11-16T20-07-44.000000.mp4");
     }
     
     public void initializeVineJList() {
@@ -125,5 +162,20 @@ public class Window {
     public void downloadVines() {
         List<Vine> vines = VineService.parseVineList();
         VineService.downloadVines(vines);
+    }
+
+    private class VineRenderCallbackAdapter extends RenderCallbackAdapter {
+
+        private VineRenderCallbackAdapter() {
+            super(new int[width * height]);
+        }
+
+        @Override
+        protected void onDisplay(DirectMediaPlayer mediaPlayer, int[] rgbBuffer) {
+            // Simply copy buffer to the image and repaint
+            image.setRGB(0, 0, width, height, rgbBuffer, 0, width);
+            videoSurfacePanel.setImage(image);
+            videoSurfacePanel.repaint();
+        }
     }
 }
